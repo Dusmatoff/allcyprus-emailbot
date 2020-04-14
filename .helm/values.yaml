@@ -1,0 +1,11 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: registry.digitalocean.com/automaticsolutions
+  repository: allcyprus-emailbot
+  tag: latest
+  pullSecret: do-registry
+
+ingress:
+  host: allcyprus-emailbot.leadgenbot.ru

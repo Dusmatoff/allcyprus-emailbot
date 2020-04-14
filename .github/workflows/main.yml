@@ -1,0 +1,42 @@
+name: Deploy to k8s
+
+on: [push]
+
+jobs:
+  build:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker Login
+        run: docker login -u $DIGITALOCEAN_ACCESS_TOKEN -p $DIGITALOCEAN_ACCESS_TOKEN registry.digitalocean.com
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - uses: actions/checkout@master
+      - name: Build and push docker image
+        run: |
+          cd $GITHUB_WORKSPACE/$APP
+          docker build --build-arg NPM_TOKEN=$GITHUB_TOKEN -t registry.digitalocean.com/automaticsolutions/allcyprus-emailbot:${{ github.sha }} .
+          docker push registry.digitalocean.com/automaticsolutions/allcyprus-emailbot:${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Download kubeconfig
+        uses: digitalocean/action-doctl@master
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+        with:
+          args: kubernetes cluster kubeconfig show k8s-1-15-3-do-2-fra1-1569065275277 > $GITHUB_WORKSPACE/.kubeconfig
+
+      - name: Use do-k8s config
+        run: |
+          mkdir -p $HOME/.kube
+          mv $GITHUB_WORKSPACE/.kubeconfig $HOME/.kube/config
+
+      - name: Deploy to DigitalOcean Kubernetes
+        run: |
+          helm upgrade allcyprus-emailbot .helm --install --set image.tag=${{ github.sha }}
